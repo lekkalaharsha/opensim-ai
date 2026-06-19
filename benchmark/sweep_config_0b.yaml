@@ -1,0 +1,61 @@
+# benchmark/sweep_config_0b.yaml
+# Phase 0B Sweep Configuration (~10,000+ benchmark records)
+#
+# Expanded sweep for the production dataset openqsim_v1.0.
+# Requires multiple Kaggle GPU sessions or a dedicated GPU node.
+# Run AFTER Phase 0A has validated the full pipeline.
+#
+# Total combinations ≈ 6 × 10 × 8 × 3 × 5 = 7,200 (minus OOM)
+
+schema_version: "0.1.0"
+
+# All six circuit generators
+circuits:
+  - ghz
+  - qft
+  - random
+  - qaoa
+  - variational
+  - clifford
+
+# Extended qubit range
+# 5-16: exact entanglement computable
+# 18-25: approximate entanglement
+# 28-30: pushing statevector memory limit (may OOM on T4)
+qubits:
+  - 5
+  - 8
+  - 10
+  - 12
+  - 15
+  - 18
+  - 20
+  - 22
+  - 25
+  - 28
+
+# Finer depth granularity
+depths:
+  - 1
+  - 2
+  - 4
+  - 8
+  - 16
+  - 24
+  - 32
+  - 48
+
+# All available backends (including future ones)
+backends:
+  - aer_statevector
+  - aer_mps
+  # - aer_tensor_net    # uncomment when stable
+
+# More repetitions for statistical significance
+repetitions: 5
+
+seed_base: 42
+
+timeout_seconds: 3600
+
+output_dir: data/raw

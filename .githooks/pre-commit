@@ -1,0 +1,11 @@
+#!/bin/bash
+# Pre-commit: schema validation for benchmark JSONs
+
+for file in $(git diff --cached --name-only --diff-filter=ACM | grep 'data/raw/.*\.json$'); do
+    if [ -f "$file" ]; then
+        if ! python -c "import json; d=json.load(open('$file')); assert 'schema_version' in d" 2>/dev/null; then
+            echo "ERROR: $file is missing schema_version field"
+            exit 1
+        fi
+    fi
+done

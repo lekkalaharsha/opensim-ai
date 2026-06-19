@@ -1,0 +1,139 @@
+name: OpenQSim CI/CD
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # --- Lint & Type Check ---
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install flake8 black isort mypy types-pyyaml
+
+      - name: Lint with flake8
+        run: flake8 backend/ benchmark/ kaggle/ tests/ --max-line-length=100 --ignore=E203,W503
+
+      - name: Check formatting with black
+        run: black --check --line-length=100 backend/ benchmark/ kaggle/ tests/
+
+      - name: Check imports with isort
+        run: isort --check --profile=black backend/ benchmark/ kaggle/ tests/
+
+      - name: Check types with mypy
+        run: mypy backend/ benchmark/ kaggle/ tests/
+
+  # --- Unit Tests ---
+  test:
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest pytest-cov
+
+      - name: Run unit tests
+        run: pytest tests/ -v --cov=. --cov-report=term-missing --ignore=tests/test_integration.py
+
+  # --- Integration Tests (Milestone Gates) ---
+  integration:
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install qiskit qiskit-aer
+
+      - name: Run integration tests
+        run: python -m pytest tests/test_integration.py -v
+
+  # --- Milestone 0 Gate ---
+  milestone-0:
+    runs-on: ubuntu-latest
+    needs: integration
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install qiskit qiskit-aer pynvml pyyaml
+
+      - name: Milestone 0 Gate Check
+        run: |
+          python -c "
+          import sys, json, os
+          sys.path.insert(0, '.')
+          from benchmark.circuit_library.ghz import generate_ghz_circuit
+          from backend.aer_statevector import AerStatevectorBackend
+          from benchmark.runner import run_single_benchmark
+          
+          os.makedirs('data/raw', exist_ok=True)
+          result = run_single_benchmark(
+              generate_ghz_circuit(n_qubits=5, depth=1, seed=42),
+              AerStatevectorBackend(),
+              output_dir='data/raw'
+          )
+          
+          # 15-point gate check
+          assert result.schema_version == '0.1.0', f'Schema: {result.schema_version}'
+          assert result.backend_name == 'aer_statevector'
+          assert result.n_qubits == 5
+          assert result.success == True
+          assert result.fidelity is not None
+          assert result.fidelity > 0.99, f'Fidelity: {result.fidelity}'
+          assert result.fidelity_method == 'exact'
+          assert result.compilation_time_seconds > 0
+          assert result.execution_time_seconds > 0
+          assert abs(result.total_time_seconds - (result.compilation_time_seconds + result.execution_time_seconds)) < 0.001
+          assert result.environment.python_version != ''
+          assert result.environment.qiskit_version != ''
+          assert result.environment.gpu_name != ''
+          
+          # Verify JSON output
+          json_path = 'data/raw/ghz_5q_d1_aer_statevector.json'
+          assert os.path.exists(json_path), f'JSON not found: {json_path}'
+          with open(json_path) as f:
+              data = json.load(f)
+          assert data['schema_version'] == '0.1.0'
+          
+          print('✅ PASSED: Milestone 0')
+          print(f'   Fidelity: {result.fidelity:.6f}')
+          print(f'   Time: {result.total_time_seconds:.4f}s')
+          print(f'   GPU: {result.environment.gpu_name}')
+          "

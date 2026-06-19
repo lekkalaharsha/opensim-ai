@@ -1,0 +1,13 @@
+#!/bin/bash
+# Post-commit: check Milestone 0 status
+
+python -c "
+from benchmark.circuit_library.ghz import generate_ghz_circuit
+from backend.aer_statevector import AerStatevectorBackend
+from benchmark.runner import run_single_benchmark
+result = run_single_benchmark(generate_ghz_circuit(5, seed=42), AerStatevectorBackend())
+if result.success and result.fidelity and result.fidelity > 0.99:
+    print('✅ Milestone 0: PASSING')
+else:
+    print('⚠️  Milestone 0: NOT YET PASSING')
+" 2>/dev/null || echo "⚠️  Milestone 0: COULD NOT CHECK"

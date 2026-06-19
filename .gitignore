@@ -1,0 +1,50 @@
+# Environment
+.env
+.env.local
+.env.production
+*.env
+
+# API keys & secrets
+kaggle.json
+*_api_key*
+*_secret*
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+*.egg
+
+# Data (raw & processed are generated)
+data/raw/
+data/processed/
+
+# Kaggle working directory
+/kaggle/
+.kaggle/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*venv/
+# OS
+.DS_Store
+Thumbs.db
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Coverage
+htmlcov/
+.coverage
+.pytest_cache/
+
+# Streamlit
+.streamlit/secrets.toml

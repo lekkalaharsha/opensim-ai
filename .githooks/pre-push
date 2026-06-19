@@ -1,0 +1,9 @@
+#!/bin/bash
+# Pre-push: run integration tests
+
+echo "Running integration tests..."
+python -m pytest tests/test_integration.py -v
+if [ $? -ne 0 ]; then
+    echo "ERROR: Integration tests failed. Push rejected."
+    exit 1
+fi

@@ -1,0 +1,42 @@
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.backends._legacy:_Backend"
+
+[project]
+name = "openqsim"
+version = "0.1.0"
+description = "Open-Source Benchmark Suite for Quantum Circuit Simulators"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.10"
+dependencies = [
+    "qiskit>=1.0.0",
+    "qiskit-aer>=0.14.0",
+    "numpy>=1.24.0",
+    "pandas>=2.0.0",
+    "pyyaml>=6.0",
+    "pynvml>=11.0.0",
+    "requests>=2.28.0",
+    "python-dotenv>=1.0.0",
+    "networkx>=3.0",
+]
+
+[project.optional-dependencies]
+dashboard = ["streamlit>=1.28.0", "plotly>=5.14.0"]
+ml = ["xgboost>=2.0.0", "scikit-learn>=1.3.0", "joblib>=1.3.0"]
+dev = ["pytest>=7.0.0", "pytest-cov>=4.0.0", "black>=24.0.0", "isort>=5.13.0", "flake8>=7.0.0", "mypy>=1.8.0", "pre-commit>=3.6.0"]
+kaggle = ["kaggle>=1.5.0"]
+
+[tool.black]
+line-length = 100
+
+[tool.isort]
+profile = "black"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = "test_*.py"
+
+[tool.mypy]
+python_version = "3.10"
+ignore_missing_imports = true

@@ -1,0 +1,50 @@
+project: openqsim
+version: "0.1.0"
+milestone: 0
+
+auto_commit: false
+research_delegation: deepseek
+test_delegation: [codex, antigravity]
+
+python_version: "3.11"
+line_length: 100
+docstring_style: google
+type_hints: mandatory
+
+source_dirs:
+  - backend/
+  - benchmark/
+  - frontend/
+  - research/
+
+test_dirs:
+  - tests/
+
+data_dirs:
+  - data/raw/
+  - data/processed/
+  - data/datasets/
+
+available_backends:
+  - aer_statevector
+  - aer_mps
+
+current_schema_version: "0.1.0"
+target_gpu: "Tesla T4"
+target_gpu_memory_mb: 15360
+host_platform: "kaggle"
+
+milestones:
+  m0:
+    name: "Infrastructure Validation"
+    deliverable: "data/raw/ghz_5q_d1_aer_statevector.json"
+    test: "tests/test_integration.py::test_milestone_0_integration"
+    status: in_progress
+  m1:
+    name: "Dataset Generation"
+    deliverable: "data/datasets/openqsim_v0.1-small/"
+    status: pending
+  m2:
+    name: "Baseline Backend Selector"
+    deliverable: "research/backend_selector/model.pkl"
+    status: pending

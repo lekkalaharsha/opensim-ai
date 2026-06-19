@@ -1,0 +1,60 @@
+# benchmark/sweep_config_0a.yaml
+# Phase 0A Sweep Configuration (~1,000 benchmark records)
+#
+# This config defines a manageable first sweep that fits within one
+# Kaggle GPU session (12h Tesla T4).  The goal is to produce the
+# openqsim_v0.1-small dataset.
+#
+# Total combinations = circuits × qubits × depths × backends × reps
+#                   = 4 × 7 × 5 × 2 × 3 = 840 (minus OOM failures)
+
+schema_version: "0.1.0"
+
+# Circuit types to benchmark
+circuits:
+  - ghz           # maximally entangled GHZ state
+  - qft           # quantum Fourier transform
+  - random        # random SU(4) circuits
+  - qaoa          # QAOA ansatz for MaxCut
+
+# Qubit counts (small → medium)
+# 5-8: fast sanity checks
+# 10-15: intermediate scaling
+# 18-20: near the memory wall for statevector on T4 (15 GB)
+qubits:
+  - 5
+  - 8
+  - 10
+  - 12
+  - 15
+  - 18
+  - 20
+
+# Circuit depths (shallow → deep)
+# 1-2: low entanglement
+# 4-8: moderate entanglement
+# 16: deep circuits, stress test for MPS
+depths:
+  - 1
+  - 2
+  - 4
+  - 8
+  - 16
+
+# Simulator backends to compare
+backends:
+  - aer_statevector
+  - aer_mps
+
+# Number of repetitions per (circuit, qubits, depth, backend) combo
+# 3 reps gives statistical stability without exploding runtime
+repetitions: 3
+
+# Base seed for reproducibility (rep 0 = seed_base, rep 1 = seed_base+1, ...)
+seed_base: 42
+
+# Maximum time (seconds) allowed per single benchmark before timeout
+timeout_seconds: 1800
+
+# Output directory for raw JSON files
+output_dir: data/raw
