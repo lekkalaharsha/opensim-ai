@@ -23,6 +23,21 @@ AVAILABLE_MODELS = {
 }
 
 
+class RateLimiter:
+    """Simple token‑bucket rate limiter for API calls."""
+
+    def __init__(self, max_calls_per_minute: int = 60):
+        self.min_interval = 60.0 / max_calls_per_minute
+        self.last_call = 0.0
+
+    def wait(self):
+        now = time.time()
+        elapsed = now - self.last_call
+        if elapsed < self.min_interval:
+            time.sleep(self.min_interval - elapsed)
+        self.last_call = time.time()
+
+
 @dataclass
 class AdvisorRecommendation:
     """Structured recommendation from the LLM advisor."""
@@ -68,6 +83,8 @@ class NIMBackendAdvisor:
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json",
         })
+        # Rate limiter for 60 RPM free tier
+        self._rate_limiter = RateLimiter(max_calls_per_minute=60)
 
     def _call_api(self, messages: list[Dict[str, str]], max_tokens: int = 200) -> str:
         """Make a request to the NVIDIA NIM API.
@@ -82,6 +99,9 @@ class NIMBackendAdvisor:
         Raises:
             RuntimeError: If the API call fails after retries.
         """
+        # Respect the 60 RPM limit
+        self._rate_limiter.wait()
+
         payload = {
             "model": self.model,
             "messages": messages,
@@ -156,24 +176,26 @@ class NIMBackendAdvisor:
         raw_response = self._call_api(messages, max_tokens=200)
         latency = time.perf_counter() - t0
 
-        # Parse JSON response
-        json_str = raw_response
+        # Save original response before any manipulation
+        original_response = raw_response
+
+        # Extract JSON from response (may be wrapped in ```json blocks)
         try:
-            # Extract JSON from response (may be wrapped in ```json blocks)
+            json_str = raw_response
             if "```json" in json_str:
                 json_str = json_str.split("```json")[1].split("```")[0]
             elif "```" in json_str:
                 json_str = json_str.split("```")[1].split("```")[0]
-            
+
             parsed = json.loads(json_str.strip())
             backend = parsed.get("backend", available_backends[0])
             confidence = float(parsed.get("confidence", 0.5))
-            reasoning = parsed.get("reasoning", raw_response)
+            reasoning = parsed.get("reasoning", original_response)
         except (json.JSONDecodeError, KeyError):
             # Fallback: use first available backend with low confidence
             backend = available_backends[0] if available_backends else "aer_statevector"
             confidence = 0.3
-            reasoning = f"Failed to parse LLM response. Raw: {raw_response[:200]}"
+            reasoning = f"Failed to parse LLM response. Raw: {original_response[:200]}"
 
         return AdvisorRecommendation(
             recommended_backend=backend,
@@ -181,7 +203,7 @@ class NIMBackendAdvisor:
             reasoning=reasoning,
             model_used=self.model,
             latency_seconds=latency,
-            raw_response=raw_response,
+            raw_response=original_response,  # Use original unmodified response
         )
 
     def explain_result(self, result: SimulationResult) -> str:

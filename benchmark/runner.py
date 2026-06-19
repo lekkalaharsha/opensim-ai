@@ -17,6 +17,7 @@ from benchmark.circuit_library.qft import generate_qft_circuit
 from benchmark.circuit_library.random import generate_random_circuit
 from benchmark.circuit_library.qaoa import generate_qaoa_circuit
 from benchmark.circuit_library.variational import generate_variational_circuit
+from benchmark.schema import validate_record
 from benchmark.circuit_library.clifford import generate_clifford_circuit
 
 
@@ -103,6 +104,14 @@ def run_single_benchmark(
         "circuit_fingerprint": result.circuit_fingerprint,
     }
 
+    # Validate the result before saving
+    # Validate the result before saving (validate_record returns list of issues)
+    validation_errors = validate_record(result_dict)
+    if validation_errors:
+        result_dict["validation_errors"] = validation_errors
+        print(f"⚠️ Validation warnings for {result.circuit_name}: {validation_errors}")
+        # Still save, but with warnings logged
+        
     # File name includes circuit name and backend to avoid collisions
     safe_circuit_name = result.circuit_name.replace(" ", "_").replace("/", "_")
     file_name = f"{safe_circuit_name}_{result.backend_name}.json"

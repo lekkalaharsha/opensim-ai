@@ -1,7 +1,4 @@
 
-## `README.md`
-
-```markdown
 # OpenQSim Benchmark Suite
 
 **An open-source dataset and benchmarking framework for comparing quantum simulation backends.**
