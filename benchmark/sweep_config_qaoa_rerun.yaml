@@ -1,0 +1,35 @@
+# benchmark/sweep_config_qaoa_rerun.yaml
+# Re-runs only QAOA circuits after the main Phase 0A sweep completes.
+# Used when all QAOA records failed due to the unbound-parameter bug.
+#
+# Total combinations = 1 × 7 × 5 × 2 × 3 = 210
+
+schema_version: "0.1.0"
+
+circuits:
+  - qaoa
+
+qubits:
+  - 5
+  - 8
+  - 10
+  - 12
+  - 15
+  - 18
+  - 20
+
+depths:
+  - 1
+  - 2
+  - 4
+  - 8
+  - 16
+
+backends:
+  - aer_statevector
+  - aer_mps
+
+repetitions: 3
+seed_base: 42
+timeout_seconds: 1800
+output_dir: data/raw
