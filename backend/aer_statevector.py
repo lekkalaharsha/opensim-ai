@@ -6,9 +6,6 @@ and exact fidelity.
 """
 
 import time
-import os
-import threading
-from typing import Optional
 
 import numpy as np
 from qiskit import transpile, QuantumCircuit
@@ -17,6 +14,7 @@ from qiskit_aer import AerSimulator
 from backend.abstract import QuantumSimulatorBackend, SimulationResult
 from backend.environment import collect_environment_metadata
 from backend.config import AerConfig
+from backend.gpu_poll import GpuMemoryPoller
 
 
 class AerStatevectorBackend(QuantumSimulatorBackend):
@@ -66,35 +64,6 @@ class AerStatevectorBackend(QuantumSimulatorBackend):
         # --- environment metadata (collected once per run) ---
         env = collect_environment_metadata()
 
-        # --- GPU memory polling setup ---
-        peak_memory = [0]                # list for in-place mutation by thread
-        stop_polling = threading.Event()
-
-        def poll_memory() -> None:
-            """Poll GPU memory usage every 100 ms until stopped."""
-            try:
-                # Respect CUDA_VISIBLE_DEVICES to poll the correct GPU
-                device_index_str = os.getenv("CUDA_VISIBLE_DEVICES", "0").split(',')[0].strip()
-                try:
-                    device_index = int(device_index_str)
-                except (ValueError, IndexError):
-                    device_index = 0
-
-                import pynvml
-                pynvml.nvmlInit()
-                handle = pynvml.nvmlDeviceGetHandleByIndex(device_index)
-                while not stop_polling.is_set():
-                    info = pynvml.nvmlDeviceGetMemoryInfo(handle)
-                    used_mb = int(info.used) // (1024 * 1024)
-                    if used_mb > peak_memory[0]:
-                        peak_memory[0] = used_mb
-                    time.sleep(0.1)
-                pynvml.nvmlShutdown()
-            except Exception:
-                pass                        # silently ignore if pynvml unavailable
-
-        memory_thread = threading.Thread(target=poll_memory, daemon=True)
-
         # --- compilation timing ---
         compilation_start = time.perf_counter()
         try:
@@ -116,47 +85,42 @@ class AerStatevectorBackend(QuantumSimulatorBackend):
         compilation_time = time.perf_counter() - compilation_start
 
         # --- execution with memory polling ---
-        try:
-            memory_thread.start()
-            exec_start = time.perf_counter()
-            # Add save_statevector for Aer 0.17.x compatibility
-            if shots == 0:
-                transpiled = transpiled.copy()
-                transpiled.save_statevector()
-            job = self._simulator.run(transpiled, shots=shots)
-            result = job.result()
-            execution_time = time.perf_counter() - exec_start
-        except MemoryError as mem_err:
-            stop_polling.set()
-            memory_thread.join(timeout=1)
-            return SimulationResult(
-                schema_version="0.1.0",
-                backend_name=self.name,
-                circuit_name=circuit.name or "unnamed",
-                n_qubits=circuit.num_qubits,
-                depth=circuit.depth(),
-                compilation_time_seconds=compilation_time,
-                success=False,
-                error_message=f"Out of memory: {mem_err}",
-                environment=env,
-            )
-        except Exception as exc:
-            stop_polling.set()
-            memory_thread.join(timeout=1)
-            return SimulationResult(
-                schema_version="0.1.0",
-                backend_name=self.name,
-                circuit_name=circuit.name or "unnamed",
-                n_qubits=circuit.num_qubits,
-                depth=circuit.depth(),
-                compilation_time_seconds=compilation_time,
-                success=False,
-                error_message=f"Execution error: {exc}",
-                environment=env,
-            )
-        finally:
-            stop_polling.set()
-            memory_thread.join(timeout=1)
+        with GpuMemoryPoller() as poller:
+            try:
+                exec_start = time.perf_counter()
+                # Add save_statevector for Aer 0.17.x compatibility
+                if shots == 0:
+                    transpiled = transpiled.copy()
+                    transpiled.save_statevector()
+                job = self._simulator.run(transpiled, shots=shots)
+                result = job.result()
+                execution_time = time.perf_counter() - exec_start
+            except MemoryError as mem_err:
+                return SimulationResult(
+                    schema_version="0.1.0",
+                    backend_name=self.name,
+                    circuit_name=circuit.name or "unnamed",
+                    n_qubits=circuit.num_qubits,
+                    depth=circuit.depth(),
+                    compilation_time_seconds=compilation_time,
+                    peak_gpu_memory_mb=float(poller.peak_mb),
+                    success=False,
+                    error_message=f"Out of memory: {mem_err}",
+                    environment=env,
+                )
+            except Exception as exc:
+                return SimulationResult(
+                    schema_version="0.1.0",
+                    backend_name=self.name,
+                    circuit_name=circuit.name or "unnamed",
+                    n_qubits=circuit.num_qubits,
+                    depth=circuit.depth(),
+                    compilation_time_seconds=compilation_time,
+                    peak_gpu_memory_mb=float(poller.peak_mb),
+                    success=False,
+                    error_message=f"Execution error: {exc}",
+                    environment=env,
+                )
 
         # --- statevector & fidelity ---
         statevector = None
@@ -193,7 +157,7 @@ class AerStatevectorBackend(QuantumSimulatorBackend):
             compilation_time_seconds=compilation_time,
             execution_time_seconds=execution_time,
             total_time_seconds=compilation_time + execution_time,
-            peak_gpu_memory_mb=float(peak_memory[0]),
+            peak_gpu_memory_mb=float(poller.peak_mb),
             fidelity=fidelity,
             fidelity_method=fidelity_method,
             statevector=statevector,
