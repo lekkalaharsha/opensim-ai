@@ -39,13 +39,16 @@ def _env_float(name: str, default: float) -> float:
 
 
 def _gpu_available() -> bool:
-    """Check if a CUDA-capable GPU is available via pynvml."""
+    """Check if the installed Qiskit Aer build can run GPU simulations.
+
+    A physical GPU being present (detectable via pynvml) is not sufficient:
+    the CPU-only ``qiskit-aer`` wheel cannot use it. We therefore ask Aer
+    directly which devices it supports, which only reports ``GPU`` when the
+    ``qiskit-aer-gpu`` build is installed AND a usable CUDA device exists.
+    """
     try:
-        import pynvml
-        pynvml.nvmlInit()
-        count = pynvml.nvmlDeviceGetCount()
-        pynvml.nvmlShutdown()
-        return count > 0
+        from qiskit_aer import AerSimulator
+        return "GPU" in AerSimulator().available_devices()
     except Exception:
         return False
 

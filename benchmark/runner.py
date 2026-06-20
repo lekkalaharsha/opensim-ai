@@ -19,6 +19,7 @@ from benchmark.circuit_library.qaoa import generate_qaoa_circuit
 from benchmark.circuit_library.variational import generate_variational_circuit
 from benchmark.schema import validate_record
 from benchmark.circuit_library.clifford import generate_clifford_circuit
+from benchmark.circuit_fingerprint import extract_circuit_fingerprint
 
 
 # Registry of circuit generators accessible by name
@@ -30,6 +31,61 @@ CIRCUIT_GENERATORS = {
     "variational": generate_variational_circuit,
     "clifford": generate_clifford_circuit,
 }
+
+
+def load_circuit_generator(name: str):
+    """Return the circuit generator function registered under ``name``.
+
+    Args:
+        name: Circuit family identifier (e.g., 'ghz', 'qft').
+
+    Returns:
+        The generator callable, invoked as ``generator(n_qubits, depth, seed)``.
+
+    Raises:
+        ValueError: If no generator is registered under ``name``.
+    """
+    generator = CIRCUIT_GENERATORS.get(name)
+    if generator is None:
+        raise ValueError(
+            f"Unknown circuit type: {name!r}. Available: {sorted(CIRCUIT_GENERATORS)}"
+        )
+    return generator
+
+
+def load_backend(name: str) -> QuantumSimulatorBackend:
+    """Instantiate a simulator backend by its registered name.
+
+    The MPS backend is registered only when it can be imported, so callers on
+    environments without it still get a clear ``ValueError`` rather than an
+    ``ImportError`` at module load.
+
+    Args:
+        name: Backend identifier (e.g., 'aer_statevector', 'aer_mps').
+
+    Returns:
+        A new backend instance implementing ``QuantumSimulatorBackend``.
+
+    Raises:
+        ValueError: If no backend is registered under ``name``.
+    """
+    from backend.aer_statevector import AerStatevectorBackend
+
+    backend_map: dict[str, type[QuantumSimulatorBackend]] = {
+        "aer_statevector": AerStatevectorBackend,
+    }
+    try:
+        from backend.aer_mps import AerMPSBackend
+        backend_map["aer_mps"] = AerMPSBackend
+    except ImportError:
+        pass
+
+    backend_cls = backend_map.get(name)
+    if backend_cls is None:
+        raise ValueError(
+            f"Unknown backend: {name!r}. Available: {sorted(backend_map)}"
+        )
+    return backend_cls()
 
 
 def run_single_benchmark(
@@ -70,6 +126,15 @@ def run_single_benchmark(
             success=False,
             error_message=f"Execution error: {exc}",
         )
+
+    # Populate the ML feature fingerprint from the circuit's structure if the
+    # backend did not already supply one. This is a property of the circuit,
+    # so it is recorded even for failed runs.
+    if not result.circuit_fingerprint:
+        try:
+            result.circuit_fingerprint = extract_circuit_fingerprint(circuit)
+        except Exception:
+            pass
 
     # Ensure output directory exists
     output_path = Path(output_dir)
