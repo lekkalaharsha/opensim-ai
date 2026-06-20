@@ -29,6 +29,29 @@ def test_run_single_benchmark_writes_json():
         assert data["success"] is True
 
 
+def test_runner_populates_statevector_entropy():
+    """The runner computes entanglement entropy for statevector backends.
+
+    GHZ is maximally entangled across any balanced cut, so the exact entropy
+    is 1.0 bit. The statevector backend itself does not set entropy; the runner
+    fills it in from the returned statevector.
+    """
+    with tempfile.TemporaryDirectory() as tmpdir:
+        circuit = generate_ghz_circuit(4, seed=0)
+        result = run_single_benchmark(circuit, AerStatevectorBackend(), output_dir=tmpdir)
+
+        assert result.success is True
+        assert result.entropy_method == "exact"
+        assert result.entropy is not None
+        assert abs(result.entropy - 1.0) < 1e-6
+
+        safe_name = result.circuit_name.replace(" ", "_").replace("/", "_")
+        with open(Path(tmpdir) / f"{safe_name}_{result.backend_name}.json") as f:
+            data = json.load(f)
+        assert abs(data["entropy"] - 1.0) < 1e-6
+        assert data["entropy_method"] == "exact"
+
+
 def test_runner_handles_oom_gracefully():
     """Runner should not crash when memory is exhausted (test with large circuit on CPU)."""
     # We simulate OOM by using a backend that raises MemoryError

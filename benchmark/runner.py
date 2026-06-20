@@ -20,6 +20,7 @@ from benchmark.circuit_library.variational import generate_variational_circuit
 from benchmark.schema import validate_record
 from benchmark.circuit_library.clifford import generate_clifford_circuit
 from benchmark.circuit_fingerprint import extract_circuit_fingerprint
+from benchmark.entanglement import compute_entanglement
 
 
 # Registry of circuit generators accessible by name
@@ -133,6 +134,19 @@ def run_single_benchmark(
     if not result.circuit_fingerprint:
         try:
             result.circuit_fingerprint = extract_circuit_fingerprint(circuit)
+        except Exception:
+            pass
+
+    # Populate entanglement entropy from the statevector when the backend
+    # returned one and did not compute entropy itself. The MPS backend sets
+    # its own entropy from the Schmidt coefficients, so the guard leaves that
+    # untouched. This lives in benchmark/ (not the backend) because backend/
+    # must never import from benchmark/ (no-circular-imports rule).
+    if result.entropy is None and result.statevector is not None:
+        try:
+            result.entropy, result.entropy_method = compute_entanglement(
+                result.statevector, result.n_qubits
+            )
         except Exception:
             pass
 

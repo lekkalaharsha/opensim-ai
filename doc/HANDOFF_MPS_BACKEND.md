@@ -36,7 +36,7 @@ The two backends currently compute entanglement entropy with **different definit
 | `aer_statevector` (`benchmark/entanglement.py`) | partial trace of statevector | **all balanced** partitions (n ≤ 16) |
 | `aer_mps` (new) | MPS Schmidt coefficients | **contiguous cuts only** (the n−1 chain bonds) |
 
-For GHZ both yield exactly 1.0 bit, so tests agree. But in general, **MPS contiguous-cut max ≤ all-partition max**. 
+For GHZ both yield exactly 1.0 bit, so tests agree. But in general, **MPS contiguous-cut max ≤ all-partition max**. This discrepancy is now **live** in the dataset (see 2.2 — statevector entropy is wired in).
 
 **Decision needed:** Should both use the same definition? Options:
 - (a) Keep as-is, but relabel MPS method as `"mps_contiguous"` (not `"exact"`) so the dataset distinguishes them.
@@ -45,10 +45,12 @@ For GHZ both yield exactly 1.0 bit, so tests agree. But in general, **MPS contig
 
 My default pick if you don't respond: **(a)** — it's honest and non-destructive.
 
-### 2.2 Statevector backend records NO entropy today
-`AerStatevectorBackend` computes fidelity but **never calls `compute_entanglement`**, so statevector dataset rows have `entropy = null` while MPS rows have a value. The `check_ghz_entropy` quality gate (`benchmark/quality.py`) only ever passes for MPS rows. This asymmetry affects the entanglement-predictor training target.
+### 2.2 Statevector entropy is now wired in ✅ (was: not recorded)
+**Update:** `run_single_benchmark` now populates entropy for statevector runs via `compute_entanglement(result.statevector, n_qubits)` (`benchmark/entanglement.py`). It runs in the **runner**, not the backend, because `backend/` must not import from `benchmark/` (no-circular-imports rule). The MPS backend's own Schmidt entropy is left untouched (guarded on `result.entropy is None`; MPS returns no statevector). Statevector GHZ now reports `entropy = 1.0 (exact)`. Test: `tests/test_runner.py::test_runner_populates_statevector_entropy`.
 
-**Decision needed:** Should the statevector backend also populate entropy (via `benchmark/entanglement.py`)? I can wire it in once you confirm the definition from 2.1.
+⚠️ **Performance cost for you to weigh.** `compute_entanglement` is *exact* for n ≤ 16, which enumerates **all** C(n, n/2) balanced partitions and does a `partial_trace` per partition (C(16,8) = 12,870). This is paid on **every** statevector run, and at n = 14–16 it noticeably dominates the benchmark's own runtime — which would distort the sweep wall-clock and inflate the dataset-generation time on Kaggle.
+
+**Decision needed:** Is exact (all-partition) entropy worth that cost for `v0.1-small`, or should we (i) cap exact at a lower n, (ii) switch to contiguous-cut entropy to match MPS and make it cheap, or (iii) compute entropy in a separate post-processing pass rather than inline in the timed benchmark? Note: entropy is computed *after* the timed region, so it does **not** corrupt `execution_time_seconds`/`total_time_seconds`, but it does add to overall sweep wall-clock.
 
 ### 2.3 No truncation / bond-dimension control yet
 The MPS runs **untruncated** (Aer default), so entropy is exact for the MPS representation and fidelity vs. statevector is ~1.0. The roadmap's "Bond Dimension Oracle" (Phase 3) will need a bond-dimension sweep (`matrix_product_state_max_bond_dimension`) and a corresponding **MPS fidelity-vs-exact** metric. Neither is exposed in `AerConfig` yet.
@@ -85,10 +87,11 @@ GHZ n=15 | SV:  ~180ms fid=1.000 | MPS:  ~88ms entropy=1.000 (exact)
 MPS should be faster than statevector on GHZ/low-entanglement circuits, and entropy should be 1.0 bit for GHZ at every cut.
 
 ### Sanity checks to confirm
-- [ ] GHZ entropy = 1.0 bit (exact) at all tested qubit counts.
+- [ ] GHZ entropy = 1.0 bit (exact) at all tested qubit counts, **for both backends**.
 - [ ] Product state (single-qubit gates only) → entropy = 0.0.
 - [ ] `supports_statevector` and `supports_fidelity` are both `False`.
 - [ ] MPS records validate against `benchmark/schema.py` (entropy is numeric or null).
+- [ ] Confirm the n ≤ 16 exact-entropy cost (2.2) is acceptable for the sweep.
 - [ ] Decide 2.1 / 2.2 / 2.3 above.
 
 ---
@@ -104,6 +107,6 @@ MPS should be faster than statevector on GHZ/low-entanglement circuits, and entr
 
 ## 5. What I did NOT change
 - No truncation / bond-dimension sweeps (awaiting 2.3).
-- Did not touch the statevector entropy gap (awaiting 2.1/2.2).
+- The entropy *definition* mismatch (2.1) is unresolved — I wired statevector entropy in (2.2) using the existing all-balanced-partition method, but did not change the MPS definition or relabel either method.
 - `aer_tensor_net.py` remains a stub.
 - Schema unchanged (still `0.1.0`); no `bond_dimension` field was added — flag if you want one for the oracle.
