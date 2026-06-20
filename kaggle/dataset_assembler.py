@@ -58,6 +58,7 @@ class DatasetAssembler:
                 "entropy_method": data.get("entropy_method"),
                 "entropy_middle": data.get("entropy_middle"),
                 "entropy_avg": data.get("entropy_avg"),
+                "entropy_var": data.get("entropy_var"),
                 "success": data["success"],
                 "error_message": data.get("error_message"),
             })
@@ -74,8 +75,11 @@ class DatasetAssembler:
         df = pd.DataFrame(records)
 
         # Compute winner per (circuit_name, n_qubits, depth) combination.
-        # Groups must have exactly one sv and one mps row (both successful) to
-        # get a definitive winner; otherwise the column is left as None.
+        # Fidelity guardrail (0.999): a backend only "qualifies" if it succeeds
+        # AND its fidelity is None (not measured) or >= 0.999. If only one
+        # qualifies, it wins outright. If neither qualifies, the label is
+        # "undecidable". If both qualify, the faster one wins.
+        FIDELITY_THRESHOLD = 0.999
         df["winner"] = None
         circuit_keys = ["circuit_name", "n_qubits", "depth"]
         for key, group in df.groupby(circuit_keys):
@@ -85,23 +89,23 @@ class DatasetAssembler:
                 continue
             sv_row = sv_rows.iloc[0]
             mps_row = mps_rows.iloc[0]
-            sv_t = float(sv_row["total_time_seconds"]) if sv_row["success"] else None
-            mps_t = float(mps_row["total_time_seconds"]) if mps_row["success"] else None
 
-            if sv_t is None and mps_t is None:
-                winner = "tie"
-            elif sv_t is None:
+            sv_fid = sv_row.get("fidelity") if isinstance(sv_row.get("fidelity"), float) else None
+            mps_fid = mps_row.get("fidelity") if isinstance(mps_row.get("fidelity"), float) else None
+
+            sv_ok = bool(sv_row["success"]) and (sv_fid is None or sv_fid >= FIDELITY_THRESHOLD)
+            mps_ok = bool(mps_row["success"]) and (mps_fid is None or mps_fid >= FIDELITY_THRESHOLD)
+
+            if not sv_ok and not mps_ok:
+                winner = "undecidable"
+            elif not sv_ok:
                 winner = "aer_mps"
-            elif mps_t is None:
+            elif not mps_ok:
                 winner = "aer_statevector"
             else:
-                faster_time = max(sv_t, mps_t)
-                if faster_time <= 0:
-                    winner = "tie"
-                elif abs(sv_t - mps_t) / faster_time < 0.05:
-                    winner = "tie"
-                else:
-                    winner = "aer_statevector" if sv_t < mps_t else "aer_mps"
+                sv_t = float(sv_row["total_time_seconds"])
+                mps_t = float(mps_row["total_time_seconds"])
+                winner = "aer_statevector" if sv_t <= mps_t else "aer_mps"
 
             mask = (
                 (df["circuit_name"] == key[0]) &

@@ -146,12 +146,13 @@ def run_single_benchmark(
     # benchmark/ (no-circular-imports rule).
     if result.entropy is None and result.statevector is not None:
         try:
-            e_max, e_mid, e_avg = contiguous_entropy_features(
+            e_max, e_mid, e_avg, e_var = contiguous_entropy_features(
                 result.statevector, result.n_qubits
             )
             result.entropy = e_max
             result.entropy_middle = e_mid
             result.entropy_avg = e_avg
+            result.entropy_var = e_var
             result.entropy_method = "exact"
         except Exception:
             pass
@@ -177,6 +178,7 @@ def run_single_benchmark(
         "entropy_method": result.entropy_method,
         "entropy_middle": result.entropy_middle,
         "entropy_avg": result.entropy_avg,
+        "entropy_var": result.entropy_var,
         "success": result.success,
         "error_message": result.error_message,
         "environment": {

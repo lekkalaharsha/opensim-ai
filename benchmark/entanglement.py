@@ -155,28 +155,29 @@ def compute_entanglement(
 def contiguous_entropy_features(
     statevector: Optional[Statevector],
     n_qubits: int,
-) -> Tuple[Optional[float], Optional[float], Optional[float]]:
-    """Compute max, middle-bond, and average contiguous-cut entropies in one pass.
+) -> Tuple[Optional[float], Optional[float], Optional[float], Optional[float]]:
+    """Compute max, middle-bond, average, and variance of contiguous-cut entropies in one pass.
 
-    All three share the same O(n) partial-trace loop; calling this once is
-    cheaper than calling three separate functions.
+    All four share the same O(n) partial-trace loop; calling this once is
+    cheaper than calling separate functions.
 
     Args:
-        statevector: The full statevector. If None, returns (None, None, None).
+        statevector: The full statevector. If None, returns (None, None, None, None).
         n_qubits: Number of qubits.
 
     Returns:
-        ``(entropy_max, entropy_middle, entropy_avg)`` where:
+        ``(entropy_max, entropy_middle, entropy_avg, entropy_var)`` where:
         - ``entropy_max`` is the maximum over all n-1 contiguous cuts
         - ``entropy_middle`` is the entropy at the center cut k=(n-1)//2
         - ``entropy_avg`` is the mean over all n-1 cuts
-        All values are in bits (log base 2). Returns (None, None, None) when
-        the statevector is unavailable; (0.0, 0.0, 0.0) when n_qubits < 2.
+        - ``entropy_var`` is the variance over all n-1 cuts
+        All values are in bits (log base 2). Returns (None, None, None, None) when
+        the statevector is unavailable; (0.0, 0.0, 0.0, 0.0) when n_qubits < 2.
     """
     if statevector is None:
-        return None, None, None
+        return None, None, None, None
     if n_qubits < 2:
-        return 0.0, 0.0, 0.0
+        return 0.0, 0.0, 0.0, 0.0
 
     cut_entropies: List[float] = []
     for k in range(n_qubits - 1):
@@ -189,7 +190,8 @@ def contiguous_entropy_features(
     entropy_max = max(cut_entropies)
     entropy_middle = cut_entropies[(n_qubits - 1) // 2]
     entropy_avg = sum(cut_entropies) / len(cut_entropies)
-    return entropy_max, entropy_middle, entropy_avg
+    entropy_var = float(np.var(cut_entropies))
+    return entropy_max, entropy_middle, entropy_avg, entropy_var
 
 
 def max_contiguous_entropy(

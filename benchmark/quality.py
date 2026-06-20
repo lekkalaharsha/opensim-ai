@@ -75,11 +75,25 @@ def check_ghz_entropy(df: pd.DataFrame) -> list:
     return issues
 
 
-def run_all_checks(df: pd.DataFrame) -> dict:
+def check_fidelity_threshold(df: pd.DataFrame, threshold: float = 0.999) -> list:
+    """Tag successful records where fidelity is measured and below threshold."""
+    issues = []
+    has_fidelity = df[(df["success"] == True) & (df["fidelity"].notna())]
+    inaccurate = has_fidelity[has_fidelity["fidelity"] < threshold]
+    if len(inaccurate) > 0:
+        issues.append(
+            f"{len(inaccurate)} successful records have fidelity < {threshold} "
+            f"(tagged as 'inaccurate')"
+        )
+    return issues
+
+
+def run_all_checks(df: pd.DataFrame, fidelity_threshold: float = 0.999) -> dict:
     checks = {
         "timing_positive": check_timing_positive(df),
         "memory_plausible": check_memory_plausible(df),
         "fidelity_bounds": check_fidelity_bounds(df),
+        "fidelity_threshold": check_fidelity_threshold(df, fidelity_threshold),
         "ghz_fidelity": check_ghz_fidelity(df),
         "success_error_consistency": check_success_error_consistency(df),
         "ghz_entropy": check_ghz_entropy(df),
@@ -87,9 +101,9 @@ def run_all_checks(df: pd.DataFrame) -> dict:
     return checks
 
 
-def generate_report(dataset_dir: str):
+def generate_report(dataset_dir: str, fidelity_threshold: float = 0.999):
     df = load_dataset(dataset_dir)
-    results = run_all_checks(df)
+    results = run_all_checks(df, fidelity_threshold=fidelity_threshold)
 
     report_lines = ["# OpenQSim Dataset Quality Report", f"Dataset: {dataset_dir}"]
     total_issues = 0
@@ -112,5 +126,9 @@ def generate_report(dataset_dir: str):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--dataset", required=True, help="Path to dataset directory")
+    parser.add_argument(
+        "--fidelity-threshold", type=float, default=0.999,
+        help="Records with fidelity below this are tagged as inaccurate (default: 0.999)",
+    )
     args = parser.parse_args()
-    generate_report(args.dataset)
+    generate_report(args.dataset, fidelity_threshold=args.fidelity_threshold)

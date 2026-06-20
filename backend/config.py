@@ -74,8 +74,10 @@ class AerConfig:
         # GPU memory limit (MB)
         self.gpu_memory_mb = _env_int("OPENQSIM_GPU_MEMORY_MB", 0)
 
-        # Precision (double or single)
-        self.precision = os.getenv("OPENQSIM_PRECISION", "double")
+        # Single precision halves GPU memory usage and speeds up simulation;
+        # fidelity remains >0.999 for typical circuits. Use double only when
+        # OPENQSIM_PRECISION=double is set explicitly.
+        self.precision = os.getenv("OPENQSIM_PRECISION", "single")
 
         # Fusion settings
         self.fusion_enabled = _env_bool("OPENQSIM_FUSION_ENABLED", True)
@@ -84,8 +86,8 @@ class AerConfig:
         # Batched contraction for tensor networks
         self.batched_contraction = _env_bool("OPENQSIM_BATCHED_CONTRACTION", True)
 
-        # Parallelism
-        self.max_parallel_threads = _env_int("OPENQSIM_MAX_THREADS", 0)
+        # Parallelism — 8 threads covers P100/T4 CPU cores; 0 = Aer default
+        self.max_parallel_threads = _env_int("OPENQSIM_MAX_THREADS", 8)
 
         # CUDA device visibility
         self.cuda_visible_devices = os.getenv("CUDA_VISIBLE_DEVICES", "0")

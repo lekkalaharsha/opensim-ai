@@ -15,6 +15,7 @@ data/
 questions/
 notes/
 pyq/
+*.ipynb
 
 # Checkpoint directories produced by question generators
 _checkpoints_nvidia/

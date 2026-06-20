@@ -143,6 +143,7 @@ class AerMPSBackend(QuantumSimulatorBackend):
         entropy: Optional[float] = None
         entropy_middle: Optional[float] = None
         entropy_avg: Optional[float] = None
+        entropy_var: Optional[float] = None
         entropy_method: Optional[str] = None
         try:
             _, lambdas = result.data(0)["mps"]
@@ -151,6 +152,7 @@ class AerMPSBackend(QuantumSimulatorBackend):
                 entropy = max(bond_ents)
                 entropy_middle = bond_ents[len(bond_ents) // 2]
                 entropy_avg = sum(bond_ents) / len(bond_ents)
+                entropy_var = float(np.var(bond_ents))
                 entropy_method = "exact"
         except Exception:
             pass
@@ -169,6 +171,7 @@ class AerMPSBackend(QuantumSimulatorBackend):
             entropy_method=entropy_method,
             entropy_middle=entropy_middle,
             entropy_avg=entropy_avg,
+            entropy_var=entropy_var,
             success=True,
             environment=env,
         )

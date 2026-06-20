@@ -160,6 +160,7 @@ class KaggleRunner:
             "entropy_method": result.entropy_method,
             "entropy_middle": result.entropy_middle,
             "entropy_avg": result.entropy_avg,
+            "entropy_var": result.entropy_var,
             "advisor_predicted_backend": combo.get("advisor_predicted_backend"),
             "advisor_confidence": combo.get("advisor_confidence"),
             "success": result.success,
@@ -184,6 +185,16 @@ class KaggleRunner:
         if not report.is_valid:
             raise RuntimeError("Kaggle environment invalid. Fix issues before running.")
         print("[OK] Environment validated")
+
+        # Warn early if the target dataset doesn't exist (avoids discovering
+        # the 403 only after hours of computation).
+        if self.kaggle_dataset:
+            if not KaggleAPIClient(self.kaggle_dataset).dataset_exists():
+                print(
+                    f"WARN Dataset '{self.kaggle_dataset}' not found on Kaggle.\n"
+                    f"     Create it at kaggle.com/datasets/add before the sweep ends,\n"
+                    f"     or the final push will fall back to a local zip.\n"
+                )
 
         config = self._load_config()
         combos = self._generate_combinations(config)

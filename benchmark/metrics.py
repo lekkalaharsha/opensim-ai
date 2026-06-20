@@ -99,47 +99,44 @@ def summarize_results(results: List[SimulationResult]) -> dict:
     }
 
 
-def determine_winner(sv_result: SimulationResult, mps_result: SimulationResult) -> str:
+def determine_winner(
+    sv_result: SimulationResult,
+    mps_result: SimulationResult,
+    fidelity_threshold: float = 0.999,
+) -> str:
     """Determine which backend won for a given circuit.
 
-    Winner = faster successful backend.  When both complete within 5% of each
-    other, fidelity (if available on both) breaks the tie.  A backend that
-    failed is always the loser.
+    A backend only qualifies if it succeeded AND its fidelity (when measured)
+    is >= fidelity_threshold.  If only one qualifies, it wins outright.  If
+    neither qualifies, returns "undecidable".  If both qualify, the faster one
+    wins; equal times favour the statevector backend.
 
     Args:
         sv_result: SimulationResult from the statevector backend.
         mps_result: SimulationResult from the MPS backend.
+        fidelity_threshold: Minimum acceptable fidelity (default 0.999).
 
     Returns:
-        Backend name string: 'aer_statevector', 'aer_mps', or 'tie' if
-        fidelity is unavailable and times are within 5%.
+        Backend name string: 'aer_statevector', 'aer_mps', or 'undecidable'.
     """
-    sv_ok = sv_result.success
-    mps_ok = mps_result.success
+    sv_fid = sv_result.fidelity
+    mps_fid = mps_result.fidelity
+
+    sv_ok = sv_result.success and (sv_fid is None or sv_fid >= fidelity_threshold)
+    mps_ok = mps_result.success and (mps_fid is None or mps_fid >= fidelity_threshold)
 
     if not sv_ok and not mps_ok:
-        return "tie"
+        return "undecidable"
     if not sv_ok:
         return mps_result.backend_name
     if not mps_ok:
         return sv_result.backend_name
 
-    sv_t = sv_result.total_time_seconds
-    mps_t = mps_result.total_time_seconds
-    faster = max(sv_t, mps_t)
-    if faster <= 0:
-        return "tie"
-
-    time_diff = abs(sv_t - mps_t) / faster
-
-    if time_diff < 0.05:
-        sv_fid = sv_result.fidelity
-        mps_fid = mps_result.fidelity
-        if sv_fid is not None and mps_fid is not None:
-            return sv_result.backend_name if sv_fid >= mps_fid else mps_result.backend_name
-        return "tie"
-
-    return sv_result.backend_name if sv_t < mps_t else mps_result.backend_name
+    return (
+        sv_result.backend_name
+        if sv_result.total_time_seconds <= mps_result.total_time_seconds
+        else mps_result.backend_name
+    )
 
 
 def backend_comparison_table(results: List[SimulationResult]) -> List[Dict]:

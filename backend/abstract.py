@@ -79,6 +79,7 @@ class SimulationResult:
     entropy_method: Optional[str] = None
     entropy_middle: Optional[float] = None  # entropy at center bond k=(n-1)//2
     entropy_avg: Optional[float] = None     # mean over all n-1 contiguous cuts
+    entropy_var: Optional[float] = None     # variance over all n-1 contiguous cuts
     statevector: Optional[np.ndarray] = None
     success: bool = False
     error_message: Optional[str] = None
