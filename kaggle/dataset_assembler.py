@@ -43,7 +43,7 @@ class DatasetAssembler:
             with open(f) as fh:
                 data = json.load(fh)
             records.append({
-                "combo_key": data.get("combo_key", ""),
+                "combo_key": data.get("combo_key") or f.stem,
                 "circuit_name": data["circuit_name"],
                 "n_qubits": data["n_qubits"],
                 "depth": data["depth"],

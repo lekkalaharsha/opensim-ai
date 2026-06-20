@@ -21,6 +21,9 @@ pyq/
 _checkpoints_nvidia/
 _checkpoints_groq/
 
+# Notebooks in kaggle/notebooks/ are deployment templates (no credentials)
+!kaggle/notebooks/*.ipynb
+
 # Generated catalog / report CSVs
 *.csv
 all_models_catalog.csv
