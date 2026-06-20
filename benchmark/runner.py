@@ -20,7 +20,7 @@ from benchmark.circuit_library.variational import generate_variational_circuit
 from benchmark.schema import validate_record
 from benchmark.circuit_library.clifford import generate_clifford_circuit
 from benchmark.circuit_fingerprint import extract_circuit_fingerprint
-from benchmark.entanglement import max_contiguous_entropy
+from benchmark.entanglement import contiguous_entropy_features
 
 
 # Registry of circuit generators accessible by name
@@ -146,9 +146,13 @@ def run_single_benchmark(
     # benchmark/ (no-circular-imports rule).
     if result.entropy is None and result.statevector is not None:
         try:
-            result.entropy, result.entropy_method = max_contiguous_entropy(
+            e_max, e_mid, e_avg = contiguous_entropy_features(
                 result.statevector, result.n_qubits
             )
+            result.entropy = e_max
+            result.entropy_middle = e_mid
+            result.entropy_avg = e_avg
+            result.entropy_method = "exact"
         except Exception:
             pass
 
@@ -171,6 +175,8 @@ def run_single_benchmark(
         "fidelity_method": result.fidelity_method,
         "entropy": result.entropy,
         "entropy_method": result.entropy_method,
+        "entropy_middle": result.entropy_middle,
+        "entropy_avg": result.entropy_avg,
         "success": result.success,
         "error_message": result.error_message,
         "environment": {
@@ -190,7 +196,7 @@ def run_single_benchmark(
     validation_errors = validate_record(result_dict)
     if validation_errors:
         result_dict["validation_errors"] = validation_errors
-        print(f"⚠️ Validation warnings for {result.circuit_name}: {validation_errors}")
+        print(f"WARN Validation warnings for {result.circuit_name}: {validation_errors}")
         # Still save, but with warnings logged
         
     # File name includes circuit name and backend to avoid collisions

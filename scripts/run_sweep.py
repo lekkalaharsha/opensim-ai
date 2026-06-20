@@ -73,7 +73,7 @@ def main():
         dataset_dir = os.path.join(args.output_dir, "datasets", "openqsim_v0.1-small")
         assembler = DatasetAssembler(raw_dir=raw_dir, dataset_dir=dataset_dir)
         manifest = assembler.assemble()
-        print(f"✅ Dataset assembled: {manifest.records} records")
+        print(f"[OK] Dataset assembled: {manifest.records} records")
         return
 
     # Run sweep
@@ -108,9 +108,9 @@ def main():
                 args.output_dir,
                 message=f"Sweep complete: {manifest.records} records",
             )
-            print(f"✅ Pushed to Kaggle Dataset: {kaggle_dataset}")
+            print(f"[OK] Pushed to Kaggle Dataset: {kaggle_dataset}")
         except Exception as e:
-            print(f"⚠️  Kaggle push failed: {e}")
+            print(f"WARN Kaggle push failed: {e}")
             print(f"   Data is in {args.output_dir}")
 
 

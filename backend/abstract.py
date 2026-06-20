@@ -75,8 +75,10 @@ class SimulationResult:
     peak_gpu_memory_mb: float = 0.0
     fidelity: Optional[float] = None
     fidelity_method: Optional[str] = None
-    entropy: Optional[float] = None
+    entropy: Optional[float] = None         # max contiguous-cut entropy (primary)
     entropy_method: Optional[str] = None
+    entropy_middle: Optional[float] = None  # entropy at center bond k=(n-1)//2
+    entropy_avg: Optional[float] = None     # mean over all n-1 contiguous cuts
     statevector: Optional[np.ndarray] = None
     success: bool = False
     error_message: Optional[str] = None

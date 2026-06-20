@@ -30,27 +30,30 @@ from backend.config import AerConfig
 from backend.gpu_poll import GpuMemoryPoller
 
 
-def _max_bond_entropy(lambdas: Sequence[Sequence[float]]) -> float:
-    """Return the maximum von Neumann entropy (bits) over all MPS bonds.
+def _all_bond_entropies(lambdas: Sequence[Sequence[float]]) -> List[float]:
+    """Return per-bond von Neumann entropy (bits) for every MPS bond.
 
     Args:
-        lambdas: Per-bond Schmidt coefficient vectors from the Aer MPS, where
-            each vector is normalized so that the sum of squares is 1.
+        lambdas: Per-bond Schmidt coefficient vectors from the Aer MPS.
 
     Returns:
-        The largest bipartite entanglement entropy across contiguous cuts, in
-        bits. Returns 0.0 when there are no bonds (e.g. a single qubit).
+        List of entropy values, one per bond (length = n_qubits - 1).
     """
-    max_entropy = 0.0
+    result = []
     for lam in lambdas:
         probs = np.asarray(lam, dtype=float) ** 2
         probs = probs[probs > 1e-15]
         if probs.size == 0:
-            continue
-        entropy_bits = float(-np.sum(probs * np.log2(probs)))
-        if entropy_bits > max_entropy:
-            max_entropy = entropy_bits
-    return max_entropy
+            result.append(0.0)
+        else:
+            result.append(float(-np.sum(probs * np.log2(probs))))
+    return result
+
+
+def _max_bond_entropy(lambdas: Sequence[Sequence[float]]) -> float:
+    """Return the maximum von Neumann entropy (bits) over all MPS bonds."""
+    entropies = _all_bond_entropies(lambdas)
+    return max(entropies) if entropies else 0.0
 
 
 class AerMPSBackend(QuantumSimulatorBackend):
@@ -138,14 +141,19 @@ class AerMPSBackend(QuantumSimulatorBackend):
 
         # --- entanglement entropy from MPS Schmidt coefficients ---
         entropy: Optional[float] = None
+        entropy_middle: Optional[float] = None
+        entropy_avg: Optional[float] = None
         entropy_method: Optional[str] = None
         try:
             _, lambdas = result.data(0)["mps"]
-            entropy = _max_bond_entropy(lambdas)
-            entropy_method = "exact"
+            bond_ents = _all_bond_entropies(lambdas)
+            if bond_ents:
+                entropy = max(bond_ents)
+                entropy_middle = bond_ents[len(bond_ents) // 2]
+                entropy_avg = sum(bond_ents) / len(bond_ents)
+                entropy_method = "exact"
         except Exception:
-            entropy = None
-            entropy_method = None
+            pass
 
         return SimulationResult(
             schema_version="0.1.0",
@@ -159,6 +167,8 @@ class AerMPSBackend(QuantumSimulatorBackend):
             peak_gpu_memory_mb=float(poller.peak_mb),
             entropy=entropy,
             entropy_method=entropy_method,
+            entropy_middle=entropy_middle,
+            entropy_avg=entropy_avg,
             success=True,
             environment=env,
         )

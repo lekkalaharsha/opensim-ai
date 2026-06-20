@@ -1,15 +1,36 @@
-# Environment
+# ── Secrets & credentials ──────────────────────────────────────────────────
 .env
 .env.local
 .env.production
-*.env
-
-# API keys & secrets
+# .env.example is intentionally tracked (no real keys)
 kaggle.json
 *_api_key*
 *_secret*
 
-# Python
+# Kaggle credentials dir (NOT the kaggle/ source package)
+.kaggle/
+
+# ── Generated data (never commit raw benchmark outputs) ────────────────────
+data/
+questions/
+notes/
+pyq/
+
+# Checkpoint directories produced by question generators
+_checkpoints_nvidia/
+_checkpoints_groq/
+
+# Generated catalog / report CSVs
+*.csv
+all_models_catalog.csv
+groq_model_catlog.csv
+
+# ── Convenience / local-only scripts ───────────────────────────────────────
+*.bat
+*.sh
+!scripts/run_sweep.sh
+
+# ── Python ────────────────────────────────────────────────────────────────
 __pycache__/
 *.pyc
 *.pyo
@@ -18,32 +39,24 @@ dist/
 build/
 .venv/
 venv/
+*venv/
 *.egg
 
-# Data (raw & processed are generated)
-data/raw/
-data/processed/
-
-# Kaggle credentials / local CLI config (NOT the kaggle/ source package)
-.kaggle/
-
-# IDE
+# ── IDE / OS ──────────────────────────────────────────────────────────────
 .vscode/
 .idea/
 *.swp
 *.swo
-*venv/
-# OS
 .DS_Store
 Thumbs.db
 
-# Jupyter
+# ── Jupyter ───────────────────────────────────────────────────────────────
 .ipynb_checkpoints/
 
-# Coverage
+# ── Test / coverage ───────────────────────────────────────────────────────
 htmlcov/
 .coverage
 .pytest_cache/
 
-# Streamlit
+# ── Streamlit ─────────────────────────────────────────────────────────────
 .streamlit/secrets.toml

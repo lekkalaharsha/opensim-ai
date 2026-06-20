@@ -99,6 +99,49 @@ def summarize_results(results: List[SimulationResult]) -> dict:
     }
 
 
+def determine_winner(sv_result: SimulationResult, mps_result: SimulationResult) -> str:
+    """Determine which backend won for a given circuit.
+
+    Winner = faster successful backend.  When both complete within 5% of each
+    other, fidelity (if available on both) breaks the tie.  A backend that
+    failed is always the loser.
+
+    Args:
+        sv_result: SimulationResult from the statevector backend.
+        mps_result: SimulationResult from the MPS backend.
+
+    Returns:
+        Backend name string: 'aer_statevector', 'aer_mps', or 'tie' if
+        fidelity is unavailable and times are within 5%.
+    """
+    sv_ok = sv_result.success
+    mps_ok = mps_result.success
+
+    if not sv_ok and not mps_ok:
+        return "tie"
+    if not sv_ok:
+        return mps_result.backend_name
+    if not mps_ok:
+        return sv_result.backend_name
+
+    sv_t = sv_result.total_time_seconds
+    mps_t = mps_result.total_time_seconds
+    faster = max(sv_t, mps_t)
+    if faster <= 0:
+        return "tie"
+
+    time_diff = abs(sv_t - mps_t) / faster
+
+    if time_diff < 0.05:
+        sv_fid = sv_result.fidelity
+        mps_fid = mps_result.fidelity
+        if sv_fid is not None and mps_fid is not None:
+            return sv_result.backend_name if sv_fid >= mps_fid else mps_result.backend_name
+        return "tie"
+
+    return sv_result.backend_name if sv_t < mps_t else mps_result.backend_name
+
+
 def backend_comparison_table(results: List[SimulationResult]) -> List[Dict]:
     """Create a comparison table across backends for a set of results.
 

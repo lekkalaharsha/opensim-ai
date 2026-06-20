@@ -28,5 +28,5 @@ class KaggleAPIClient:
         )
         if result.returncode != 0:
             raise RuntimeError(f"Kaggle push failed: {result.stderr}")
-        print(f"✅ Pushed to {self.dataset}")
+        print(f"[OK] Pushed to {self.dataset}")
         return True

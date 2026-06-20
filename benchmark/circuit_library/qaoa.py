@@ -65,4 +65,11 @@ def generate_qaoa_circuit(n_qubits: int, depth: int = 1, seed: int = 42) -> Quan
         for i in range(n_qubits):
             circuit.rx(2 * beta, i)
 
+    # Bind parameters with deterministic random values so the circuit is
+    # fully concrete and can be run without a parameter_binds argument.
+    if circuit.parameters:
+        params_sorted = sorted(circuit.parameters, key=lambda p: p.name)
+        values = rng.uniform(0, 2 * np.pi, len(params_sorted))
+        circuit = circuit.assign_parameters(dict(zip(params_sorted, values)))
+
     return circuit

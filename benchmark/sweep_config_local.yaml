@@ -1,0 +1,40 @@
+# benchmark/sweep_config_local.yaml
+# Local development sweep — CPU-safe (no OOM risk)
+#
+# Runs on any machine without a GPU.  Statevector is tractable up to n=15
+# on CPU; higher qubits are in sweep_config_0a.yaml (needs Kaggle T4).
+#
+# Total = 4 × 5 × 4 × 2 × 2 = 320 combinations (~10-30 min on CPU)
+
+schema_version: "0.1.0"
+
+circuits:
+  - ghz
+  - qft
+  - random
+  - qaoa
+
+qubits:
+  - 5
+  - 8
+  - 10
+  - 12
+  - 15
+
+depths:
+  - 1
+  - 2
+  - 4
+  - 8
+
+backends:
+  - aer_statevector
+  - aer_mps
+
+repetitions: 2
+
+seed_base: 42
+
+timeout_seconds: 300
+
+output_dir: data/raw

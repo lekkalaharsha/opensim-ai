@@ -4,8 +4,8 @@ Orchestrates: environment validation, sweep execution with checkpointing,
 and optional push to a persistent Kaggle Dataset.
 """
 
+import os
 import time
-import traceback
 import json
 import hashlib
 from pathlib import Path
@@ -23,11 +23,49 @@ from benchmark.circuit_library.variational import generate_variational_circuit
 from benchmark.circuit_library.clifford import generate_clifford_circuit
 
 from backend.aer_statevector import AerStatevectorBackend
-from backend.aer_mps import AerMPSBackend  # will raise NotImplementedError until built
+from backend.aer_mps import AerMPSBackend
 
 from kaggle.environment import validate_kaggle_environment
 from kaggle.checkpoint import CheckpointManager
 from kaggle.api_client import KaggleAPIClient
+
+
+def _build_advisor():
+    """Return a CascadingAdvisor if NVIDIA keys are present, else None.
+
+    Reads NVIDIA_API_KEY and, when NVIDIA_API_KEY_COUNT=2, also
+    NVIDIA_API_KEY_1 for parallel throughput. Falls back to Groq if
+    GROQ_API_KEY is set, then to the rule baseline.
+    """
+    try:
+        from backend.llm_advisor import NIMBackendAdvisor, CascadingAdvisor, GroqBackendAdvisor
+
+        nvidia_keys = []
+        primary = os.environ.get("NVIDIA_API_KEY", "").strip()
+        if primary:
+            nvidia_keys.append(primary)
+        if os.environ.get("NVIDIA_API_KEY_COUNT", "1").strip() == "2":
+            secondary = os.environ.get("NVIDIA_API_KEY_1", "").strip()
+            if secondary:
+                nvidia_keys.append(secondary)
+
+        groq_key = os.environ.get("GROQ_API_KEY", "").strip()
+
+        if not nvidia_keys and not groq_key:
+            return None
+
+        nvidia_advisor = NIMBackendAdvisor(api_key=nvidia_keys[0]) if nvidia_keys else None
+        groq_advisor = GroqBackendAdvisor(api_key=groq_key) if groq_key else None
+
+        advisor = CascadingAdvisor(nvidia_advisor=nvidia_advisor, groq_advisor=groq_advisor)
+        key_desc = f"{len(nvidia_keys)} NVIDIA key(s)"
+        if groq_key:
+            key_desc += " + Groq fallback"
+        print(f"[OK] LLM advisor enabled ({key_desc})")
+        return advisor
+    except Exception as e:
+        print(f"WARN LLM advisor disabled: {e}")
+        return None
 
 
 CIRCUIT_GENERATORS = {
@@ -67,6 +105,7 @@ class KaggleRunner:
         checkpoint_interval: int = 10,
         artifact_interval: int = 50,
         kaggle_dataset: Optional[str] = None,
+        use_advisor: bool = True,
     ):
         self.sweep_config_path = sweep_config_path
         self.output_dir = Path(output_dir)
@@ -76,6 +115,7 @@ class KaggleRunner:
         self.artifact_interval = artifact_interval
         self.kaggle_dataset = kaggle_dataset
         self.ckpt = CheckpointManager(str(self.output_dir.parent / "checkpoints"))
+        self._advisor = _build_advisor() if use_advisor else None
 
     def _load_config(self) -> dict:
         with open(self.sweep_config_path) as f:
@@ -118,6 +158,10 @@ class KaggleRunner:
             "fidelity_method": result.fidelity_method,
             "entropy": result.entropy,
             "entropy_method": result.entropy_method,
+            "entropy_middle": result.entropy_middle,
+            "entropy_avg": result.entropy_avg,
+            "advisor_predicted_backend": combo.get("advisor_predicted_backend"),
+            "advisor_confidence": combo.get("advisor_confidence"),
             "success": result.success,
             "error_message": result.error_message,
             "environment": {
@@ -139,7 +183,7 @@ class KaggleRunner:
         report = validate_kaggle_environment()
         if not report.is_valid:
             raise RuntimeError("Kaggle environment invalid. Fix issues before running.")
-        print("✅ Environment OK")
+        print("[OK] Environment validated")
 
         config = self._load_config()
         combos = self._generate_combinations(config)
@@ -157,6 +201,31 @@ class KaggleRunner:
         # 3. Hash config for checkpoint integrity
         config_hash = hashlib.md5(json.dumps(config, sort_keys=True).encode()).hexdigest()[:8]
 
+        # Pre-query advisor once per (circuit, qubits, depth) group so we pay
+        # the API cost only once per unique circuit shape, not once per backend
+        # and repetition. Results are stored on the combo dict for _save_result.
+        if self._advisor:
+            from benchmark.circuit_fingerprint import extract_circuit_fingerprint
+            seen_shapes: dict = {}
+            for combo in combos:
+                shape = (combo["circuit"], combo["qubits"], combo["depth"])
+                if shape not in seen_shapes:
+                    try:
+                        gen = CIRCUIT_GENERATORS[combo["circuit"]]
+                        qc = gen(combo["qubits"], combo["depth"], combo["seed"])
+                        fp = extract_circuit_fingerprint(qc)
+                        rec = self._advisor.recommend_backend(
+                            qasm=qc.qasm() if hasattr(qc, "qasm") else "",
+                            fingerprint=fp,
+                        )
+                        seen_shapes[shape] = (rec.recommended_backend, rec.confidence)
+                    except Exception as e:
+                        print(f"WARN advisor failed for {shape}: {e}")
+                        seen_shapes[shape] = (None, None)
+                pred, conf = seen_shapes[shape]
+                combo["advisor_predicted_backend"] = pred
+                combo["advisor_confidence"] = conf
+
         t0 = time.time()
         for i in range(start_idx, total):
             combo = combos[i]
@@ -173,16 +242,16 @@ class KaggleRunner:
                 self.ckpt.mark_completed(combo["combo_key"])
                 completed += 1
                 if result.success:
-                    print(f"✅ {result.total_time_seconds:.2f}s")
+                    print(f"OK  {result.total_time_seconds:.2f}s")
                 elif result.error_message and "memory" in result.error_message.lower():
                     oom += 1
-                    print(f"⚠️ OOM")
+                    print("OOM")
                 else:
                     errors += 1
-                    print(f"❌ {result.error_message or 'Unknown error'}")
+                    print(f"ERR {result.error_message or 'Unknown error'}")
             except Exception as e:
                 errors += 1
-                print(f"❌ {e}")
+                print(f"ERR {e}")
                 self.ckpt.mark_completed(combo["combo_key"])
 
             if (i + 1) % self.checkpoint_interval == 0:
@@ -195,7 +264,7 @@ class KaggleRunner:
                         f"Sweep checkpoint – {completed} records"
                     )
                 except Exception as e:
-                    print(f"⚠️ Artifact push failed: {e}")
+                    print(f"WARN Artifact push failed: {e}")
 
         # final checkpoint & push
         self.ckpt.save(total - 1, completed, oom, errors, total, config_hash)
@@ -208,7 +277,7 @@ class KaggleRunner:
                 )
                 pushed = True
             except Exception as e:
-                print(f"⚠️ Final push failed: {e}")
+                print(f"WARN Final push failed: {e}")
 
         duration = time.time() - t0
         print(f"\n=== Sweep finished: {completed} records in {duration/3600:.1f}h ===")
