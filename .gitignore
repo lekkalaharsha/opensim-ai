@@ -24,8 +24,7 @@ venv/
 data/raw/
 data/processed/
 
-# Kaggle working directory
-/kaggle/
+# Kaggle credentials / local CLI config (NOT the kaggle/ source package)
 .kaggle/
 
 # IDE
