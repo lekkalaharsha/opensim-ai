@@ -59,7 +59,7 @@ def validate_kaggle_environment() -> KaggleEnvironmentReport:
 
     gpu_name, gpu_mem = detect_gpu()
     if gpu_name == "CPU":
-        issues.append("No GPU detected. Enable GPU accelerator in notebook settings.")
+        warnings.append("No GPU detected — aer_statevector will run on CPU (slower for large circuits).")
     elif "T4" not in gpu_name and "P100" not in gpu_name:
         warnings.append(f"Unexpected GPU: {gpu_name}. Expected Tesla T4 or P100.")
     if gpu_mem < 14000 and gpu_name != "CPU":
@@ -77,7 +77,9 @@ def validate_kaggle_environment() -> KaggleEnvironmentReport:
 
     aer_ver = get_package_version("qiskit-aer")
     if aer_ver == "NOT INSTALLED":
-        issues.append("qiskit-aer not installed.")
+        aer_ver = get_package_version("qiskit-aer-gpu")  # GPU wheel registers under this name
+    if aer_ver == "NOT INSTALLED":
+        issues.append("qiskit-aer not installed (neither qiskit-aer nor qiskit-aer-gpu found).")
 
     cuda_ok = False
     try:
