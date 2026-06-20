@@ -10,6 +10,11 @@ chain, the Schmidt (singular) values of the contiguous bipartition at that cut.
 For an untruncated MPS (Aer's default) these are exact, so the von Neumann
 entropy ``S = -Σ pᵢ log₂ pᵢ`` with ``pᵢ = λᵢ²`` is the exact entanglement
 entropy across that contiguous cut. The maximum over all bonds is reported.
+
+This is the same contiguous-cut definition the statevector backend uses (via
+``benchmark.entanglement.max_contiguous_entropy``), so entropy is directly
+comparable across the two backends — here it is read straight from the Schmidt
+coefficients with no statevector materialized.
 """
 
 import time

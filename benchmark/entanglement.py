@@ -150,3 +150,49 @@ def compute_entanglement(
             max_ent = ent
 
     return max_ent, "approximate"
+
+
+def max_contiguous_entropy(
+    statevector: Optional[Statevector],
+    n_qubits: int,
+) -> Tuple[Optional[float], Optional[str]]:
+    """Maximum entanglement entropy over the contiguous cuts of a qubit chain.
+
+    Evaluates the von Neumann entropy of each contiguous bipartition
+    ``{0..k} | {k+1..n-1}`` for ``k`` in ``0..n-2`` and returns the maximum.
+    These are exactly the ``n - 1`` cuts an MPS represents at its bonds, so
+    this matches the entropy the MPS backend reads from its Schmidt
+    coefficients — giving a single, consistent entropy definition across the
+    statevector and MPS backends.
+
+    Unlike :func:`compute_entanglement` (which enumerates all C(n, n/2)
+    balanced partitions and is exact only up to n=16), this is O(n) cuts and
+    exact for every ``n`` for which a statevector is available.
+
+    Args:
+        statevector: The full statevector. If None, returns (None, None).
+        n_qubits: Number of qubits.
+
+    Returns:
+        (max_entropy, "exact"), or (None, None) if no statevector is given.
+    """
+    if statevector is None:
+        return None, None
+    if n_qubits < 2:
+        return 0.0, "exact"
+
+    max_ent = 0.0
+    for k in range(n_qubits - 1):
+        left = list(range(k + 1))               # {0..k}
+        right = list(range(k + 1, n_qubits))    # {k+1..n-1}
+        # The entanglement entropy is symmetric for a pure state (S(ρ_A) =
+        # S(ρ_B)), so reduce onto whichever side is smaller. partial_trace
+        # traces out the qubits it is given, so we trace out the larger side
+        # and keep the smaller one. This caps the reduced density matrix at
+        # 2^(n/2); keeping the larger side instead is exponentially slower.
+        trace_out = right if len(left) <= len(right) else left
+        rho = partial_trace(statevector, trace_out)
+        ent = float(entropy(rho, base=2))
+        if ent > max_ent:
+            max_ent = ent
+    return max_ent, "exact"
