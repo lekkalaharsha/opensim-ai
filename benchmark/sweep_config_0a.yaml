@@ -1,12 +1,16 @@
 # benchmark/sweep_config_0a.yaml
-# Phase 0A Sweep Configuration (~1,000 benchmark records)
+# Phase 0A Sweep Configuration
 #
-# This config defines a manageable first sweep that fits within one
-# Kaggle GPU session (12h Tesla T4).  The goal is to produce the
-# openqsim_v0.1-small dataset.
+# Single unified config — CPU and GPU share the work automatically:
+#   aer_statevector → GPU (AerConfig auto-selects when qiskit-aer-gpu is installed)
+#   aer_mps         → CPU always (Aer's matrix_product_state is CPU-only in 0.15.1)
+#
+# Qubit range extended to 28 (verified on Kaggle T4):
+#   statevector single-precision at 28q = 2 GB GPU memory (fits in 15 GB T4)
+#   MPS at high qubits: OOMs are caught and logged as success=false, not crashes
 #
 # Total combinations = circuits × qubits × depths × backends × reps
-#                   = 4 × 7 × 5 × 2 × 3 = 840 (minus OOM failures)
+#                    = 4 × 11 × 5 × 2 × 3 = 1320 (minus OOM failures)
 
 schema_version: "0.1.0"
 
@@ -17,10 +21,10 @@ circuits:
   - random        # random SU(4) circuits
   - qaoa          # QAOA ansatz for MaxCut
 
-# Qubit counts (small → medium)
-# 5-8: fast sanity checks
-# 10-15: intermediate scaling
-# 18-20: near the memory wall for statevector on T4 (15 GB)
+# Qubit counts (small → high)
+# 5-15:  CPU-competitive range, both backends fast
+# 18-20: GPU starts winning for statevector
+# 22-28: GPU dominant; MPS still handles well due to compressed representation
 qubits:
   - 5
   - 8
@@ -29,11 +33,15 @@ qubits:
   - 15
   - 18
   - 20
+  - 22
+  - 24
+  - 26
+  - 28
 
 # Circuit depths (shallow → deep)
 # 1-2: low entanglement
 # 4-8: moderate entanglement
-# 16: deep circuits, stress test for MPS
+# 16:  deep circuits, stress test for MPS bond dimension
 depths:
   - 1
   - 2
@@ -41,13 +49,12 @@ depths:
   - 8
   - 16
 
-# Simulator backends to compare
+# Simulator backends — GPU and CPU work together in one sweep
 backends:
-  - aer_statevector
-  - aer_mps
+  - aer_statevector   # GPU-accelerated when qiskit-aer-gpu is installed
+  - aer_mps           # always CPU (matrix_product_state is CPU-only in Aer 0.15.1)
 
 # Number of repetitions per (circuit, qubits, depth, backend) combo
-# 3 reps gives statistical stability without exploding runtime
 repetitions: 3
 
 # Base seed for reproducibility (rep 0 = seed_base, rep 1 = seed_base+1, ...)
