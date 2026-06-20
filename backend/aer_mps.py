@@ -71,10 +71,14 @@ class AerMPSBackend(QuantumSimulatorBackend):
     """
 
     def __init__(self) -> None:
-        """Initialize the Aer MPS backend, honoring the shared Aer config."""
+        """Initialize the Aer MPS backend. matrix_product_state is CPU-only in
+        Aer 0.15.1 — force device=CPU regardless of the global AerConfig to
+        avoid cudaErrorNoKernelImageForDevice when a GPU session is active."""
         self.config = AerConfig()
         self._simulator = AerSimulator(method="matrix_product_state")
-        self._simulator.set_options(**self.config.to_aer_options())
+        opts = self.config.to_aer_options()
+        opts["device"] = "CPU"  # MPS has no GPU implementation in Aer 0.15.1
+        self._simulator.set_options(**opts)
 
     # ------------------------------------------------------------------
     # ABC properties
