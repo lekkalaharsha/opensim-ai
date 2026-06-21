@@ -1,0 +1,35 @@
+# benchmark/sweep_config_colab_22-28.yaml
+# Phase 0A high band, remaining chunk after 18q/20q are done on Colab.
+# qubits {22,24,26,28}, all 4 circuits, both backends. CPU (set OPENQSIM_DEVICE=CPU).
+#
+# Combinations = 4 circuits × 4 qubits × 5 depths × 2 backends × 3 reps = 480
+
+schema_version: "0.1.0"
+
+circuits:
+  - ghz
+  - qft
+  - random
+  - qaoa
+
+qubits:
+  - 22
+  - 24
+  - 26
+  - 28
+
+depths:
+  - 1
+  - 2
+  - 4
+  - 8
+  - 16
+
+backends:
+  - aer_statevector
+  - aer_mps
+
+repetitions: 3
+seed_base: 42
+timeout_seconds: 1800
+output_dir: data/raw

@@ -20,19 +20,29 @@ Do not trust the local `data/benchmark_outputs/` partial run (213 files on 0.17.
 - The 135 `aer_statevector` entries in the old `completed_combinations.txt` are
   PHANTOMS (marked done, zero output) — ignore; new run uses a fresh config hash.
 
-## Now — Small band 8–16q, Kaggle CPU-only  (`sweep_config_small.yaml`, 480 combos)
-- [ ] Run notebook on Kaggle (CPU pinned via `OPENQSIM_DEVICE=CPU`, cell 3).
-- [ ] ~420 new combos: `ghz×statevector` + `qft/random/qaoa × both backends`.
-- [ ] Verify: 480 small-band JSON, both backends, all 4 circuits, schema-valid.
+## Split across two machines (no qubit overlap)
+- **Kaggle CPU** → small band {8,10,12,15}  (`sweep_config_small.yaml`, 480)
+- **Colab**      → high band {18,20,22,24,26,28} (`sweep_config_colab.yaml`, 720)
+- Together cover the full 0a grid EXCEPT **5q** (see gap below).
 
-## Next session — Medium band 16–24q, Kaggle CPU-only (`sweep_config_medium.yaml`, 480)
-- [ ] Switch `SWEEP_NAME` in cell 3 → `sweep_config_medium.yaml`.
-- [ ] qubits {18,20,22,24} (no 16 in grid); statevector up to 24q fits on CPU.
+## DONE — Small band 8–15q, Kaggle CPU (`sweep_config_small.yaml`)
+- [x] 480/480 verified — 4 circuits × {8,10,12,15} × 5 depths × 2 backends × 3 reps.
+- [x] All success, statevector fidelity = 1.0000 exact, entropy populated. P100 box, CPU compute.
+- [x] Consolidated into `data/phase0a/raw/` (new overlays old sparse ghz/mps).
+- Note: `Downloads/pwnetwork` (T4, ghz+qft only, partial) is SUPERSEDED — do not merge.
+
+## Now — High band, Colab (`sweep_config_colab.yaml`, 720 combos)
+- [ ] Colab clones main + runs `scripts/run_sweep.py --config sweep_config_colab.yaml`.
+- [ ] Device auto-selected by AerConfig (GPU if Colab kernels run, else CPU).
+- [ ] Verify with `scripts/verify_sweep.py --config sweep_config_colab.yaml`.
+
+## Gap
+- [ ] **5q** is in neither band. Mop up later (cheapest band, CPU, seconds).
+      Add `5` to small config OR a tiny one-off run. Don't change small mid-run.
 
 ## Later
-- [ ] High band 26–28q + GPU decision: find a T4-compatible `qiskit-aer-gpu`
-      build (sm_75), else cap statevector at 24q for Phase 0A.
-- [ ] Full `sweep_config_0a.yaml` only once GPU works (else it's CPU data anyway).
+- [ ] Merge small + colab + 5q into the Phase 0A dataset; check vs full 0a grid.
+- [ ] sweep_config_medium.yaml removed — superseded by colab band.
 
 ## Notebook state (done this session)
 - [x] qiskit==1.4.2 pin kept (qft.py needs `QFT`, removed in Qiskit 2.1).

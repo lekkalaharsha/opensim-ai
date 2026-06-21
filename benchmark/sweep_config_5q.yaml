@@ -1,0 +1,33 @@
+# benchmark/sweep_config_5q.yaml
+# Phase 0A — 5q mop-up on Kaggle CPU. The 5q row is the last grid gap:
+# qft/random/qaoa never ran, and existing 5q ghz is mixed-provenance
+# (old mps + pwnetwork T4 sv). Run all 4 circuits so 5q is one clean run.
+#
+# Combinations = 4 circuits × 1 qubit × 5 depths × 2 backends × 3 reps = 120
+
+schema_version: "0.1.0"
+
+circuits:
+  - ghz
+  - qft
+  - random
+  - qaoa
+
+qubits:
+  - 5
+
+depths:
+  - 1
+  - 2
+  - 4
+  - 8
+  - 16
+
+backends:
+  - aer_statevector
+  - aer_mps
+
+repetitions: 3
+seed_base: 42
+timeout_seconds: 300
+output_dir: data/raw
