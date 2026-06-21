@@ -64,3 +64,5 @@ htmlcov/
 
 # ── Streamlit ─────────────────────────────────────────────────────────────
 .streamlit/secrets.toml
+# local benchmark artifacts pulled back from Kaggle
+downloads/

@@ -1,0 +1,40 @@
+# benchmark/sweep_config_small.yaml
+# Phase 0A — small-circuit band (8–16 qubits), run first.
+#
+# Why first: 8–16q statevector fits in <100 MB and runs in ms on CPU, so this
+# completes reliably even with the GPU broken (Kaggle T4 cudaErrorNoKernelImage).
+# It yields real data for BOTH backends across all 4 circuit families — the
+# previous run only produced ghz/aer_mps.
+#
+# Combinations = 4 circuits × 4 qubits × 5 depths × 2 backends × 3 reps = 480
+
+schema_version: "0.1.0"
+
+circuits:
+  - ghz
+  - qft
+  - random
+  - qaoa
+
+# 8–16 qubit band (no 16 in the grid; 15 is the top of the band)
+qubits:
+  - 8
+  - 10
+  - 12
+  - 15
+
+depths:
+  - 1
+  - 2
+  - 4
+  - 8
+  - 16
+
+backends:
+  - aer_statevector
+  - aer_mps
+
+repetitions: 3
+seed_base: 42
+timeout_seconds: 300
+output_dir: data/raw

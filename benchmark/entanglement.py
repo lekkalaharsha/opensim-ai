@@ -8,7 +8,7 @@ approximate strategy (interaction graph bisection + random sampling) for
 "approximate", or None if computation is not possible.
 """
 
-from typing import Optional, Tuple, List
+from typing import Optional, Tuple, List, Union
 import numpy as np
 from qiskit.quantum_info import partial_trace, entropy
 from qiskit.quantum_info import Statevector
@@ -153,7 +153,7 @@ def compute_entanglement(
 
 
 def contiguous_entropy_features(
-    statevector: Optional[Statevector],
+    statevector: Optional[Union[Statevector, np.ndarray]],
     n_qubits: int,
 ) -> Tuple[Optional[float], Optional[float], Optional[float], Optional[float]]:
     """Compute max, middle-bond, average, and variance of contiguous-cut entropies in one pass.

@@ -91,9 +91,17 @@ class AerStatevectorBackend(QuantumSimulatorBackend):
                 # Add save_statevector for Aer 0.17.x compatibility
                 if shots == 0:
                     transpiled = transpiled.copy()
-                    transpiled.save_statevector()
+                    transpiled.save_statevector()  # type: ignore[attr-defined]  # injected by qiskit_aer.library
                 job = self._simulator.run(transpiled, shots=shots)
                 result = job.result()
+                # Aer does NOT raise on a backend failure (e.g. a GPU kernel
+                # missing for this device's compute capability) — it returns a
+                # Result with success=False and prints to stderr. Without this
+                # check the run is silently recorded as a successful row with a
+                # null statevector and null fidelity. Promote it to an exception.
+                if not result.success:
+                    status = result.results[0].status if result.results else result.status
+                    raise RuntimeError(status)
                 execution_time = time.perf_counter() - exec_start
             except MemoryError as mem_err:
                 return SimulationResult(
