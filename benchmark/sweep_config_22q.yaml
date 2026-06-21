@@ -1,0 +1,33 @@
+# benchmark/sweep_config_22q.yaml
+# Phase 0A — 22q on Kaggle CPU. All 4 circuits so the 22q row is one clean run
+# (overwrites the partial pwnetwork T4 ghz/qft). 22q statevector single precision
+# = ~32 MB, fast on CPU. Leaves 24/26/28q for Colab.
+#
+# Combinations = 4 circuits × 1 qubit × 5 depths × 2 backends × 3 reps = 120
+
+schema_version: "0.1.0"
+
+circuits:
+  - ghz
+  - qft
+  - random
+  - qaoa
+
+qubits:
+  - 22
+
+depths:
+  - 1
+  - 2
+  - 4
+  - 8
+  - 16
+
+backends:
+  - aer_statevector
+  - aer_mps
+
+repetitions: 3
+seed_base: 42
+timeout_seconds: 600
+output_dir: data/raw
