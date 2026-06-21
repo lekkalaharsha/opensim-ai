@@ -1,0 +1,41 @@
+# benchmark/sweep_config_colab.yaml
+# Phase 0A — high band (18–28 qubits), run on Google Colab.
+#
+# Device is decided at runtime by AerConfig (GPU if Aer's GPU kernels actually
+# run on the Colab card, else CPU). At 26–28q statevector wants GPU: single
+# precision = 1–2 GB on GPU; on CPU it's ~1–4 GB and slow but works.
+# MPS OOMs are caught and logged as success=false, never a crash.
+#
+# Pairs with sweep_config_small.yaml (8–16q, Kaggle CPU). Together they cover
+# the full Phase 0A qubit grid except 5q.
+#
+# Combinations = 4 circuits × 6 qubits × 5 depths × 2 backends × 3 reps = 720
+
+schema_version: "0.1.0"
+
+circuits:
+  - qaoa
+
+qubits:
+  - 18
+  - 20
+  - 22
+  - 24
+  - 26
+  - 28
+
+depths:
+  - 1
+  - 2
+  - 4
+  - 8
+  - 16
+
+backends:
+  - aer_statevector
+  - aer_mps
+
+repetitions: 3
+seed_base: 42
+timeout_seconds: 1800
+output_dir: data/raw
