@@ -1,0 +1,29 @@
+# benchmark/sweep_config_18q_qaoa_gap.yaml
+# Phase 0A — 18q gap fill. ghz/qft/random are already complete at 18q;
+# only qaoa is missing entirely. One circuit, all depths, both backends.
+#
+# Combinations = 1 circuit × 1 qubit × 5 depths × 2 backends × 3 reps = 30
+
+schema_version: "0.1.0"
+
+circuits:
+  - qaoa
+
+qubits:
+  - 18
+
+depths:
+  - 1
+  - 2
+  - 4
+  - 8
+  - 16
+
+backends:
+  - aer_statevector
+  - aer_mps
+
+repetitions: 3
+seed_base: 42
+timeout_seconds: 1800
+output_dir: data/raw

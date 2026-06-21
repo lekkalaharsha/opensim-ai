@@ -24,6 +24,7 @@ from benchmark.circuit_library.clifford import generate_clifford_circuit
 
 from backend.aer_statevector import AerStatevectorBackend
 from backend.aer_mps import AerMPSBackend
+from backend.aer_automatic import AerAutomaticBackend
 
 from kaggle.environment import validate_kaggle_environment
 from kaggle.checkpoint import CheckpointManager
@@ -80,6 +81,7 @@ CIRCUIT_GENERATORS = {
 BACKENDS = {
     "aer_statevector": AerStatevectorBackend,
     "aer_mps": AerMPSBackend,
+    "aer_automatic": AerAutomaticBackend,
 }
 
 
@@ -200,17 +202,24 @@ class KaggleRunner:
         combos = self._generate_combinations(config)
         total = len(combos)
 
-        # 2. Resume from checkpoint
+        # 3. Hash config for checkpoint integrity
+        config_hash = hashlib.md5(json.dumps(config, sort_keys=True).encode()).hexdigest()[:8]
+
+        # 2. Resume from checkpoint — only valid for the SAME config. A
+        # different config sharing this output_dir's checkpoint dir would
+        # otherwise inherit a stale last_completed_index/total and silently
+        # run zero combos (range(stale_start, new_total) is empty).
         ckpt = self.ckpt.load()
+        if ckpt.sweep_config_hash and ckpt.sweep_config_hash != config_hash:
+            print(f"WARN checkpoint is for a different config (hash {ckpt.sweep_config_hash} != {config_hash}) — resetting")
+            self.ckpt.clear()
+            ckpt = self.ckpt.load()
         start_idx = ckpt.last_completed_index + 1
         completed = ckpt.completed_count
         oom = ckpt.oom_count
         errors = ckpt.error_count
 
         print(f"Total combinations: {total}, resuming from {start_idx}")
-
-        # 3. Hash config for checkpoint integrity
-        config_hash = hashlib.md5(json.dumps(config, sort_keys=True).encode()).hexdigest()[:8]
 
         # Pre-query advisor once per (circuit, qubits, depth) group so we pay
         # the API cost only once per unique circuit shape, not once per backend

@@ -1,0 +1,32 @@
+# benchmark/sweep_config_24q.yaml
+# Phase 0A — 24q only. All 4 circuits so the 24q row is one clean run
+# (overwrites the partial ghz/qft scraps). Leaves 26/28q for Colab.
+#
+# Combinations = 4 circuits × 1 qubit × 5 depths × 2 backends × 3 reps = 120
+
+schema_version: "0.1.0"
+
+circuits:
+  - ghz
+  - qft
+  - random
+  - qaoa
+
+qubits:
+  - 24
+
+depths:
+  - 1
+  - 2
+  - 4
+  - 8
+  - 16
+
+backends:
+  - aer_statevector
+  - aer_mps
+
+repetitions: 3
+seed_base: 42
+timeout_seconds: 1800
+output_dir: data/raw

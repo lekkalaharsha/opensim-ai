@@ -1,8 +1,10 @@
 # benchmark/sweep_config_colab_22-28.yaml
 # Phase 0A high band, remaining chunk after 18q/20q are done on Colab.
-# qubits {22,24,26,28}, all 4 circuits, both backends. CPU (set OPENQSIM_DEVICE=CPU).
+# qubits {26,28} — 22q and 24q now run as their own dedicated configs
+# (sweep_config_22q.yaml, sweep_config_24q.yaml) to avoid cross-machine overlap.
+# All 4 circuits, both backends. CPU (set OPENQSIM_DEVICE=CPU).
 #
-# Combinations = 4 circuits × 4 qubits × 5 depths × 2 backends × 3 reps = 480
+# Combinations = 4 circuits × 2 qubits × 5 depths × 2 backends × 3 reps = 240
 
 schema_version: "0.1.0"
 
@@ -13,8 +15,6 @@ circuits:
   - qaoa
 
 qubits:
-  - 22
-  - 24
   - 26
   - 28
 

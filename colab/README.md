@@ -12,7 +12,8 @@
 1. Open the notebook in Colab, run cells 1–6 top to bottom.
 2. Set `SWEEP` in cell 4 to the band you want:
    - `sweep_config_colab.yaml` — full high band 18–28q (720)
-   - `sweep_config_colab_22-28.yaml` — remaining 22/24/26/28q (480)
+   - `sweep_config_colab_26-28.yaml` — remaining 26/28q (240); 22q/24q now run as
+     their own dedicated configs (`sweep_config_22q.yaml`, `sweep_config_24q.yaml`)
 3. Cell 5 verifies counts and lists anything missing.
 
 Pull the data back from `MyDrive/openqsim/benchmark_outputs/raw` and consolidate
